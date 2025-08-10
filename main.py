@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from sqlmodel import SQLModel, Field, create_engine, Session, select
 from passlib.context import CryptContext
 from pydantic import BaseModel
+import os
 
 app = FastAPI()
 
@@ -45,13 +46,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 @app.post("/users/")
 def create_user(user: UserCreate):
     with Session(engine) as session:
-        # التحقق من وجود المستخدم مسبقًا
         statement = select(User).where(User.username == user.username)
         existing_user = session.exec(statement).first()
         if existing_user:
             raise HTTPException(status_code=400, detail="اسم المستخدم موجود بالفعل")
 
-        # تشفير كلمة المرور وحفظ المستخدم
         user_obj = User(username=user.username, password_hash=get_password_hash(user.password))
         session.add(user_obj)
         session.commit()
@@ -73,3 +72,9 @@ def login(user: UserLogin):
 @app.get("/")
 def read_root():
     return {"message": "API تعمل بنجاح"}
+
+# تشغيل التطبيق سواء محلي أو على Railway
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
